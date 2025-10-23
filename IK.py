@@ -6,7 +6,6 @@ from scipy.spatial.transform import Rotation as R
 ex = np.array([1,0,0])
 ey = np.array([0,1,0])
 ez = np.array([0,0,1])
-I3 = np.array([1,0,0], [0,1,0], [0,0,1])
 l0 = 0.061
 l1 = 0.0435
 l2 = 0.08285
@@ -15,84 +14,7 @@ l4 = 0.07385
 l5 = 0.05457
 L1 = l0+l1
 L4 = l4+l5
-def ik_Dofbot (POT, ROT):
-# Subproblem 4 -> theta = q2+q3+q4
-    k = -ey
-    h = ez
-    p = ex
-    d = ez.T@ROT@ex
-    thetatmp = subproblem4(k,h,p,d)
-    if len(thetatmp)==1:
-        theta = [thetatmp[0], 0, thetatmp[0], 0]
-    else:
-        theta = [thetatmp[0], thetatmp[1], thetatmp[0], thetatmp[1]]
-    # Subproblem 1 -> q1
-    for i in range(3):
-        if not np.isnan(theta[i]):
-            k = ez
-            p1 = roty(-theta[i])@ex
-            p2 = ROT@ex
-            q[0,i] = subproblem1(k,p1,p2)
-    # Subproblem 1 -> q5
-    for i in range(3):
-        if not np.isnan(theta[i]):
-            k = ex
-            p1 = roty(theta[i]) @ ez
-            p2 = Rot.T @ ez
-            q[4,i] = subproblem1(k,p1,p2)
-    # Subproblem 3  -> q3
-    for i in range(1):
-        if not np.isnan(theta[i]):
-            Pprime = rotz(-q[0, i]) @ (Pot - L1 * ez) + roty(-theta[i]) @ (L4 * ex)
-            k = -ey
-            p1 = l3*ez
-            p2 = l2*ex
-            d = np.linalg.norm(Pprime)
-            q3tmp = subproblem3(k,p1,p2,d)
-        if len(q3tmp)==1:
-            q(3,i) = q3tmp
-        else:
-            q(3,i) = q3tmp(0)
-            q(3,i+2) = q3tmp(1)
-    # Subproblem 1 -> q2
-    for i in range(3):
-        if not np.isnan(q[2,i]):
-            k = -ey
-            p1 = l2 * ex - roty(-q[2, i]) @ (l3 * ez)
-            p2 = Pprime
-            q[1,i] = subproblem1(k,p1,p2)
-    # Solving for q4
-    for i in range(3):
-        if not np.isnan(q[3,i]):
-            q[3,i] = theta[i]-q[1,i]-q[2,i]
-    # Remove invalid 
-    q = q[:, ~np.isnan(q).any(axis=0)]
-    q = np.degrees(q)
-    q[q < -180] += 360
-    q[q > 360] -= 360
-    return q
-"""
-Uses code from rpiRobotics/general_robotics_toolbox_py
-Copyright (c) 2018, RPI & Wason Technology LLC
-"""
-
-def hat(k):
-    khat=np.zeros((3,3))
-    khat[0,1]=-k[2]
-    khat[0,2]=k[1]
-    khat[1,0]=k[2]
-    khat[1,2]=-k[0]
-    khat[2,0]=-k[1]
-    khat[2,1]=k[0]    
-    return khat
-
-if __name__ == "__main__":
-    Pot = np.array([-0.0456, 0, 0.0217])
-    Rot = np.eye(3)
-    q = np.full((5, 4), np.nan)
-    q = ik_Dofbot(Pot, Rot)
-    ik_Dofbot(Pot, Rot)
-
+q = np.full((5, 4), np.nan)
 def rotx(theta):
     if isinstance(theta,np.ndarray):
         theta = theta[0]
@@ -110,6 +32,20 @@ def rotz(theta):
         theta = theta[0]
     Rz = R.from_euler('z',theta, degrees = True )
     return Rz
+"""
+Uses code from rpiRobotics/general_robotics_toolbox_py
+Copyright (c) 2018, RPI & Wason Technology LLC
+"""
+
+def hat(k):
+    khat=np.zeros((3,3))
+    khat[0,1]=-k[2]
+    khat[0,2]=k[1]
+    khat[1,0]=k[2]
+    khat[1,2]=-k[0]
+    khat[2,0]=-k[1]
+    khat[2,1]=k[0]    
+    return khat
 
 def invhat(khat):
     return np.array([(-khat[1,2] + khat[2,1]),(khat[0,2] - khat[2,0]),(-khat[0,1]+khat[1,0])])/2
@@ -200,3 +136,65 @@ def subproblem4(p, q, k, d):
         return []
     psi = np.arcsin(d)
     return [-phi+psi, -phi-psi+np.pi]
+
+def ik_Dofbot (POT, ROT):
+# Subproblem 4 -> theta = q2+q3+q4
+    k = -ey
+    h = ez
+    p = ex
+    d = ez.T @ ROT @ ex
+    thetatmp = subproblem4(k,h,p,d)
+    if len(thetatmp)==1:
+        theta = [thetatmp[0], np.nan, thetatmp[0], np.nan]
+    else:
+        theta = [thetatmp[0], thetatmp[1], thetatmp[0], thetatmp[1]]
+    # Subproblem 1 -> q1
+    for i in range(3):
+        if not np.isnan(theta[i]):
+            k = ez
+            p1 = roty(-theta[i]).as_matrix() @ ex
+            p2 = ROT@ex
+            q[0,i] = subproblem1(k,p1,p2)
+    # Subproblem 1 -> q5
+    for i in range(3):
+        if not np.isnan(theta[i]):
+            k = ex
+            p1 = roty(theta[i]).as_matrix() @ ez
+            p2 = Rot.T @ ez
+            q[4,i] = subproblem1(k,p1,p2)
+    # Subproblem 3  -> q3
+    for i in range(1):
+        if not np.isnan(theta[i]):
+            Pprime = rotz(-q[0, i]).as_matrix() @ (POT - L1 * ez) + roty(-theta[i]).as_matrix() @ (L4 * ex)
+            k = -ey
+            p1 = l3*ez
+            p2 = l2*ex
+            d = np.linalg.norm(Pprime)
+            q3tmp = subproblem3(k,p1,p2,d)
+        if len(q3tmp)==1:
+            q[3,i] = q3tmp[0]
+        else:
+            q[3,i] = q3tmp[0]
+            q[3,i+1] = q3tmp[1]
+    # Subproblem 1 -> q2
+    for i in range(3):
+        if not np.isnan(q[2,i]):
+            k = -ey
+            p1 = l2 * ex - roty(-q[2, i]).as_matrix() @ (l3 * ez)
+            p2 = Pprime
+            q[1,i] = subproblem1(k,p1,p2)
+    # Solving for q4
+    for i in range(3):
+        if not np.isnan(q[3,i]):
+            q[3,i] = theta[i]-q[1,i]-q[2,i]
+    # Remove invalid 
+    q = q[:, ~np.isnan(q).any(axis=0)]
+    q = np.degrees(q)
+    q[q < -180] += 360
+    q[q > 360] -= 360
+    return q
+if __name__ == "__main__":
+    Pot = np.array([-0.0456, 0, 0.0217])
+    Rot = np.eye(3)
+    q = ik_Dofbot(Pot, Rot)
+
