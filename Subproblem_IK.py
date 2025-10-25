@@ -2,6 +2,7 @@ import numpy as np
 import math
 import warnings
 from scipy.spatial.transform import Rotation as R
+import general_robotics_toolbox as rox
 # http://192.168.1.32:8883
 ex = np.array([1,0,0])
 ey = np.array([0,1,0])
@@ -15,6 +16,8 @@ l5 = 0.05457
 L1 = l0+l1
 L4 = l4+l5
 q = np.full((5, 4), np.nan)
+
+
 def hat(k: np.ndarray) -> np.ndarray:
     """Skew-symmetric (hat) operator for a 3D vector k."""
     kx, ky, kz = k
@@ -82,26 +85,22 @@ def subprob4(k: np.ndarray, h: np.ndarray, p: np.ndarray, d: float) -> np.ndarra
     """
     k = unit(k)
     h = unit(h)
-    # Expand k^T R(h,θ) p = (u^T p) cosθ + (v^T p) sinθ + (a * h^T p)
     a = h @ k
-    u = k - a * h           # component of k orthogonal to h
-    v = np.cross(h, k)      # also orthogonal to h, and orthogonal to u
+    u = k - a * h 
+    v = np.cross(h, k)
 
     A = u @ p
     B = v @ p
     C = a * (h @ p)
 
     E = d - C
-    r = np.hypot(A, B)      # sqrt(A^2 + B^2)
+    r = np.hypot(A, B)
 
     eps = 1e-12
     if r < eps:
-        # Then A ~ B ~ 0 -> equation reduces to C = d. If satisfied, infinite solutions; return 0.
         if abs(E) < 1e-9:
             return np.array([0.0])
         return np.array([])
-
-    # Solve A cosθ + B sinθ = E  =>  cos(θ - φ) = E / r
     phi = np.arctan2(B, A)
     arg = E / r
     if arg < -1.0 - 1e-12 or arg > 1.0 + 1e-12:
@@ -112,7 +111,6 @@ def subprob4(k: np.ndarray, h: np.ndarray, p: np.ndarray, d: float) -> np.ndarra
 
 def invkin_subproblems_Dofbot(Rot: np.ndarray, Pot: np.ndarray) -> np.ndarray:
     q = np.full((5, 4), np.nan)
-
     # Subproblem 4 -> theta = q2+q3+q4
     k = -ey
     h = ez
@@ -123,16 +121,13 @@ def invkin_subproblems_Dofbot(Rot: np.ndarray, Pot: np.ndarray) -> np.ndarray:
         theta = [thetatmp[0], np.nan, thetatmp[0], np.nan]
     else:
         theta = [thetatmp[0], thetatmp[1], thetatmp[0], thetatmp[1]]
-
     # Subproblem 1 -> q1
     for ii in range(4):
         if not np.isnan(theta[ii]):
-            k = ez
-            p1 = rot(-ey, theta[ii]) @ ex
+            k = ez 
+            p1 = rot(ey , -theta[ii]) @ ex 
             p2 = Rot @ ex
             q[0, ii] = subprob1(k, p1, p2)
-            print(q[0,ii])
-
     # Subproblem 1 -> q5
     for ii in range(4):
         if not np.isnan(theta[ii]):
@@ -140,15 +135,14 @@ def invkin_subproblems_Dofbot(Rot: np.ndarray, Pot: np.ndarray) -> np.ndarray:
             p1 = rot(ey, theta[ii]) @ ez
             p2 = Rot.T @ ez
             q[4, ii] = subprob1(k, p1, p2)
-
     # Subproblem 3  -> q3
     for ii in range(2):
         if not np.isnan(theta[ii]):
             Pprime = rot(ez, -q[0, ii]) @ (Pot - L1 * ez - rot(ey, -theta[ii]) @ (L4 * ex))
+            d = np.linalg.norm(Pprime)
             k = -ey
             p1 = l3 * ez
             p2 = l2 * ex
-            d = np.linalg.norm(Pprime)
             q3tmp = subprob3(k, p1, p2, d)
             if q3tmp.size == 1:
                 q[2, ii] = q3tmp[0]
@@ -159,9 +153,9 @@ def invkin_subproblems_Dofbot(Rot: np.ndarray, Pot: np.ndarray) -> np.ndarray:
     # Subproblem 1 -> q2
     for ii in range(4):
         if not np.isnan(q[2, ii]):
-            Pprime = rot(ez, -q[0, ii]) @ (Pot - L1 * ez - rot(ey, -theta[ii]) @ (L4 * ex))
+            Pprime = rot(ez, -q[0, ii]) @ (Pot - L1 * ez) + rot(ey, -theta[ii]) @ (L4 * ex)
             k = -ey
-            p1 = l2 * ex - (rot(-ey, q[2, ii]) @ (l3 * ez))
+            p1 = l2 * ex - (rot(ey, -q[2, ii]) @ (l3 * ez))
             p2 = Pprime
             q[1, ii] = subprob1(k, p1, p2)
     # Solving for q4
@@ -187,30 +181,53 @@ def invkin_subproblems_Dofbot(Rot: np.ndarray, Pot: np.ndarray) -> np.ndarray:
                 q_deg[i, j] -= 360.0
     return q_deg.T
 
-import numpy as np
-import time
-from Arm_Lib import Arm_Device
-Arm = Arm_Device()
-time.sleep(.2)
-Rot_I = np.eye(3)  # Identity rotation
-Pot_sample = np.array([0.16030867, 0.13451494, 0.03215322])
-# Compute IK
-q_solutions = invkin_subproblems_Dofbot(Rot_I, Pot_sample)
-if q_solutions.shape[0] == 0:
-    print("No valid IK solution found!")
-else:
-    for idx, q in enumerate(q_solutions):
-        q = q.astype(int)
-        q = np.append(q, 0)
-        print(f"\nSolution {idx+1} of {q_solutions.shape[0]}: {q}")
+def main():
+    l0 = 61e-3; l1 = 43.5e-3; l2 = 82.85e-3
+    l3 = 82.85e-3; l4 = 73.85e-3; l5 = 54.57e-3
+    ex = np.array([1,0,0])
+    ey = np.array([0,1,0])
+    ez = np.array([0,0,1])
+    P01 = (l0+l1)*ez
+    P12 = np.zeros(3)
+    P23 = l2*ex
+    P34 = -l3*ez
+    P45 = np.zeros(3)
+    P5T = -(l4+l5)*ex
+    H_axes = np.array([ez, -ey, -ey, -ey, -ex]).T
+    P_vectors = np.array([P01, P12, P23, P34, P45, P5T]).T
+    joint_type = [0,0,0,0,0]
+    robot = rox.Robot(H_axes, P_vectors, joint_type)
+    qd = np.deg2rad([0, 35, 35, 35, 35])
+    H_des = rox.fwdkin(robot, qd)
+    q = invkin_subproblems_Dofbot(H_des.R, H_des.p)
+    print(q)
+if __name__ == "__main__":
+    main()
 
-        user_input = input("Press Enter to use this solution or type 'q' to abort: ").lower()
-        if user_input == 'q':
-            print("Aborted")
-            continue
-        else:
-            print(f"Selected solution {idx+1}")
-            Arm.Arm_serial_servo_write6(q[0]+90,q[1]+90,q[2]+90,q[3]+90,q[4]+90,q[5]+90, 500)
-            time.sleep(0.5)
-            for i in range(5):
-                print(i+1, Arm.Arm_serial_servo_read(i+1))
+# import numpy as np
+# import time
+# from Arm_Lib import Arm_Device
+# Arm = Arm_Device()
+# time.sleep(.2)
+# Rot_I = np.eye(3)  # Identity rotation
+# Pot_sample = np.array([0.16030867, 0.13451494, 0.03215322])
+# # Compute IK
+# q_solutions = invkin_subproblems_Dofbot(Rot_I, Pot_sample)
+# if q_solutions.shape[0] == 0:
+#     print("No valid IK solution found!")
+# else:
+#     for idx, q in enumerate(q_solutions):
+#         q = q.astype(int)
+#         q = np.append(q, 0)
+#         print(f"\nSolution {idx+1} of {q_solutions.shape[0]}: {q}")
+
+#         user_input = input("Press Enter to use this solution or type 'q' to abort: ").lower()
+#         if user_input == 'q':
+#             print("Aborted")
+#             continue
+#         else:
+#             print(f"Selected solution {idx+1}")
+#             Arm.Arm_serial_servo_write6(q[0]+90,q[1]+90,q[2]+90,q[3]+90,q[4]+90,q[5]+90, 500)
+#             time.sleep(0.5)
+#             for i in range(5):
+#                 print(i+1, Arm.Arm_serial_servo_read(i+1))
