@@ -40,7 +40,7 @@ def jacobian_inverse(robot, q0, Rd, Pd, Nmax, tol, lambda_d=0.01):
     return q[:, iternum]
 
 def main():
-    q0 = np.deg2rad([90, 90, 90, 90, 90])
+    q0 = np.deg2rad([40, 40, 40, 40, 40])
     tol = np.array([0.0001, 0.0001, 0.0001, 0.001, 0.001, 0.001])
     Nmax = 200
     l0 = 61e-3; l1 = 43.5e-3; l2 = 82.85e-3

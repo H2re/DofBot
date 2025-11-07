@@ -24,7 +24,7 @@ def main():
     joint_type = [0, 0, 0, 0, 0]
     robot = rox.Robot(H, P, joint_type)
     q0 = np.deg2rad(np.array([90, 90, 90, 90, 90]))
-    qd = np.deg2rad(np.array([70, 70, 70, 70, 70]))
+    qd = np.deg2rad(np.array([90, 90, 90, 90, 90]))
     H_des = rox.fwdkin(robot, qd)
     print(H_des)
     solutions = rox.iterative_invkin(robot, H_des, q0)
