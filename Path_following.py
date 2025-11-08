@@ -174,20 +174,7 @@ def getqp_f(dq, er, ep):
     return f
 
 
-def main():
-    robot = defineDofbot()
-    print("\nRobot created successfully")
-    # Initial joint configuration
-    q0 = np.deg2rad(np.array([90, 90, 90, 90, 90]))
-    print(f"\nInitial joint angles (deg): {np.rad2deg(q0)}")
-    T0 = rox.fwdkin(robot, q0)
-    print(T0)
-
-    qd = np.deg2rad(np.array([45, 45, 45, 45, 45]))
-    H_des = rox.fwdkin(robot, qd)
-    sol = rox.iterative_invkin(robot, H_des, q0)
-    print(f"\nDesired:")
-    print(np.rad2deg(sol[1]))
+def run_path_generation():
     # QP parameters
     epsilon_r = 0.1
     epsilon_p = 0.1
@@ -212,6 +199,37 @@ def main():
     else:
         print("\nPath generation FAILED!")
 
+def main():
+    robot = defineDofbot()
+    print("\nRobot created successfully")
+    # Initial joint configuration
+    q0 = np.deg2rad(np.array([90, 90, 90, 90, 90]))
+    print(f"\nInitial joint angles (deg): {np.rad2deg(q0)}")
+    T0 = rox.fwdkin(robot, q0)
+    print(T0)
+
+    qd = np.deg2rad(np.array([45, 45, 45, 45, 45]))
+    H_des = rox.fwdkin(robot, qd)
+    sol = rox.iterative_invkin(robot, H_des, q0)
+    print(f"\nDesired:")
+    print(np.rad2deg(sol[1]))
+
+    # Display desired joint angles
+    desired_angles_deg = np.rad2deg(sol[1])
+    print("\nDesired joint angles to reach:")
+    for i, angle in enumerate(desired_angles_deg, start=1):
+        print(f"Joint {i}: {angle:.2f} degrees")
+
+    while True:
+        user_input = input("Do you want to generate path for these joint angles? (y/n): ").strip().lower()
+        if user_input == 'y':
+            run_path_generation()
+            break
+        elif user_input == 'n':
+            print("Exiting without running path generation.")
+            break
+        else:
+            print("Invalid input. Please enter 'y' or 'n'.")
 
 if __name__ == "__main__":
     main()
