@@ -182,10 +182,9 @@ def main():
     print(f"\nInitial joint angles (deg): {np.rad2deg(q0)}")
     T0 = rox.fwdkin(robot, q0)
     print(T0)
-
-    qd = np.deg2rad(np.array([45, 45, 45, 45, 45]))
-    H_des = rox.fwdkin(robot, qd)
-    sol = rox.iterative_invkin(robot, H_des, q0)
+    T0.p =- [0,0,0.5]
+    
+    sol = rox.iterative_invkin(robot, T0, q0)
     print(f"\nDesired:")
     print(np.rad2deg(sol[1]))
     # QP parameters
@@ -202,15 +201,17 @@ def main():
         epsilon_r, epsilon_p, 
         q_prime_min, q_prime_max, N
     )
-    
-    if q_lambda is not None:
-        print("\nPath generation successful!")
-        print(f"Number of waypoints: {q_lambda.shape[1]}")
-        print(f"\nFinal joint angles (deg): {np.rad2deg(q_lambda[:, -1])}")
-        print(f"Final position: {P0T_lambda[:, -1]}")
-        print(f"Position error: {np.linalg.norm(P0T_lambda[:, -1] - H_des.p):.6f} m")
-    else:
-        print("\nPath generation FAILED!")
+    # if q_lambda is not None:
+    #     print("\nPath generation successful!")
+    # else:
+    #     print("\nPath generation FAILED!")
+    # q_first = q_lambda[:, 0]  # Shape: (5,)
+    # q_middle = q_lambda[:, 50]  # Shape: (5,)
+    # q_final = q_lambda[:, -1]  # Shape: (5,)
+
+    # for i in range(q_lambda.shape[1]):
+    #     q_current = q_lambda[:, i]
+    #     print(f"Waypoint {i}: {np.rad2deg(q_current)} degrees")
 
 
 if __name__ == "__main__":
